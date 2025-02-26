@@ -62,7 +62,7 @@ class RollingBuffer:
 class FillingRollingBuffer(RollingBuffer):
     def __init__(self, length):
         super().__init__(length)
-        self.filled = np.zeros(length, dtype=np.bool)
+        self.filled = np.zeros(length, dtype=bool)
 
     def write(self, to_write, start):
         super().write(to_write, start)
