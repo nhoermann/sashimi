@@ -5,6 +5,7 @@ from typing import Optional
 from lightparam.param_qt import ParametrizedQt
 from lightparam import Param, ParameterTree
 from sashimi.hardware.light_source import light_source_class_dict
+from sashimi.hardware.shutter import shutter_class_dict
 from typing import Union
 
 # from sashimi.hardware import light_source_class_dict
@@ -117,7 +118,7 @@ class ZRecordingSettings(ParametrizedQt):
         super().__init__(self)
         self.name = "scanning/volumetric_recording"
         self.piezo_scan_range = Param((180.0, 220.0), (0.0, 400.0), unit="um")
-        self.frequency = Param(3.0, (0.1, 100), unit="volumes/s (Hz)")
+        self.frequency = Param(1.0, (0.1, 100), unit="volumes/s (Hz)")
         self.n_planes = Param(4, (2, 100))
         self.n_skip_start = Param(0, (0, 20))
         self.n_skip_end = Param(0, (0, 20))
@@ -147,6 +148,11 @@ class LightSourceSettings(ParametrizedQt):
         super().__init__()
         self.name = "general/light_source"
         self.intensity = Param(0, (0, 40), unit=conf["light_source"]["intensity_units"])
+
+class ShutterSettings(ParametrizedQt):
+    def __init__(self):
+        super().__init__()
+        self.name = "general/shutter"
 
 
 def convert_planar_params(planar: PlanarScanningSettings):
@@ -352,12 +358,21 @@ class State:
         self.settings_tree = ParameterTree()
 
         self.pause_after = False
+
         if self.conf["scopeless"]:
             self.light_source = light_source_class_dict["mock"]()
         else:
             self.light_source = light_source_class_dict[conf["light_source"]["name"]](
                 port=conf["light_source"]["port"]
             )
+
+        if self.conf["scopeless"]:
+            self.shutter = shutter_class_dict["mock"]()
+        else:
+            self.shutter = shutter_class_dict[conf["shutter"]["name"]](
+                port=conf["shutter"]["port"]
+            )
+
         self.camera = CameraProcess(
             stop_event=self.stop_event,
             wait_event=self.scanner.wait_signal,
@@ -406,6 +421,8 @@ class State:
             self.light_source.intensity_units
         )
 
+        self.shutter_settings = ShutterSettings()
+
         self.save_status: Optional[SavingStatus] = None
 
         self.single_plane_settings = SinglePlaneSettings()
@@ -415,6 +432,7 @@ class State:
         for setting in [
             self.planar_setting,
             self.light_source_settings,
+            self.shutter_settings,
             self.single_plane_settings,
             self.volume_setting,
             self.calibration,
