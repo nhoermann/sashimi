@@ -3,6 +3,7 @@ from sashimi.hardware.shutter.interface import AbstractShutter
 class MockShutter(AbstractShutter):
     def __init__(self, port=None):
         super().__init__(port)
+        self.port = port
 
     def set_shutter(self, command):
         """Sets shutter"""
