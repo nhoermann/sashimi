@@ -18,12 +18,9 @@ class FilterWheelWidget(QWidget):
 
         # self.state.filterwheel_settings.sig_param_changed.connect(self.update_on_bin_change)
 
-        self.lbl_text = QLabel("Filter")
-
         self.wid_filter_settings = ParameterGui(self.state.filterwheel_settings)
-        self.wid_filter_settings.currentTextChanged.connect(self.set_filter)
+        # self.wid_filter_settings.Changed.connect(self.set_filter)
 
-        self.main_layout.addWidget(self.lbl_text)
         self.main_layout.addWidget(self.wid_filter_settings)
         
         self.main_layout.setContentsMargins(0, 0, 0, 0)
