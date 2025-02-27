@@ -144,6 +144,7 @@ class MainWindow(QMainWindow):
             if self.st.pause_after:
                 self.wid_status.setCurrentIndex(0)
                 self.wid_laser.btn_off.click()
+                self.wid_shutter.btn_off.click()
             self.refresh_param_values(omit_wid_camera=True)
             self.toolbar.experiment_progress.hide()
             self.toolbar.lbl_experiment_progress.hide()
@@ -168,6 +169,7 @@ class MainWindow(QMainWindow):
         """
         self.menuBar().setEnabled(enable)
         self.wid_laser.setEnabled(enable)
+        self.wid_shutter.setEnabled(enable)
         self.wid_status.setEnabled(enable)
         self.wid_scan.setEnabled(enable)
         self.wid_camera.setEnabled(enable)

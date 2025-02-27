@@ -18,4 +18,4 @@ class MockShutter(AbstractShutter):
     @status.setter
     def status(self, command):
         self._status = command
-        print("Shutter set to: ", str(self._status))
+        # print("Shutter set to: ", str(self._status))
