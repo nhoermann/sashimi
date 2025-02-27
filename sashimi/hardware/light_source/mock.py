@@ -29,3 +29,4 @@ class MockLaser(AbstractLightSource):
     @status.setter
     def status(self, exp_val):
         self._status = exp_val
+        

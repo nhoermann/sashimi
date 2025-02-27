@@ -7,6 +7,7 @@ from sashimi.gui.scanning_gui import (
     SinglePlaneScanningWidget,
 )
 from sashimi.gui.light_source_gui import LightSourceWidget
+from sashimi.gui.shutter_gui import ShutterWidget
 from sashimi.gui.save_settings_gui import SavingSettingsWidget
 from sashimi.gui.camera_gui import ViewingWidget, CameraSettingsWidget
 from sashimi.gui.save_gui import SaveWidget
@@ -41,6 +42,7 @@ class MainWindow(QMainWindow):
         self.wid_display = ViewingWidget(st, self.timer, style)
         self.wid_save_options = SaveWidget(st, self.timer)
         self.wid_laser = LightSourceWidget(st, self.timer)
+        self.wid_shutter = ShutterWidget(st, self.timer)
         self.wid_scan = PlanarScanningWidget(st)
         self.wid_camera = CameraSettingsWidget(st, self.wid_display, self.timer)
         self.wid_status_bar = StatusBarWidget(st, self.timer)
@@ -63,6 +65,11 @@ class MainWindow(QMainWindow):
         self.addDockWidget(
             Qt.RightDockWidgetArea,
             DockedWidget(widget=self.wid_laser, title="Light source"),
+        )
+
+        self.addDockWidget(
+            Qt.RightDockWidgetArea,
+            DockedWidget(widget=self.wid_shutter, title="Shutter"),
         )
 
         self.addDockWidget(
@@ -137,6 +144,7 @@ class MainWindow(QMainWindow):
             if self.st.pause_after:
                 self.wid_status.setCurrentIndex(0)
                 self.wid_laser.btn_off.click()
+                self.wid_shutter.btn_off.click()
             self.refresh_param_values(omit_wid_camera=True)
             self.toolbar.experiment_progress.hide()
             self.toolbar.lbl_experiment_progress.hide()
@@ -161,6 +169,7 @@ class MainWindow(QMainWindow):
         """
         self.menuBar().setEnabled(enable)
         self.wid_laser.setEnabled(enable)
+        self.wid_shutter.setEnabled(enable)
         self.wid_status.setEnabled(enable)
         self.wid_scan.setEnabled(enable)
         self.wid_camera.setEnabled(enable)
