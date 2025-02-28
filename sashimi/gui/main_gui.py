@@ -8,6 +8,7 @@ from sashimi.gui.scanning_gui import (
 )
 from sashimi.gui.light_source_gui import LightSourceWidget
 from sashimi.gui.shutter_gui import ShutterWidget
+from sashimi.gui.filterwheel_gui import FilterWheelWidget
 from sashimi.gui.save_settings_gui import SavingSettingsWidget
 from sashimi.gui.camera_gui import ViewingWidget, CameraSettingsWidget
 from sashimi.gui.save_gui import SaveWidget
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         self.wid_save_options = SaveWidget(st, self.timer)
         self.wid_laser = LightSourceWidget(st, self.timer)
         self.wid_shutter = ShutterWidget(st, self.timer)
+        self.wid_filterwheel = FilterWheelWidget(st)
         self.wid_scan = PlanarScanningWidget(st)
         self.wid_camera = CameraSettingsWidget(st, self.wid_display, self.timer)
         self.wid_status_bar = StatusBarWidget(st, self.timer)
@@ -70,6 +72,11 @@ class MainWindow(QMainWindow):
         self.addDockWidget(
             Qt.RightDockWidgetArea,
             DockedWidget(widget=self.wid_shutter, title="Shutter"),
+        )
+
+        self.addDockWidget(
+            Qt.RightDockWidgetArea,
+            DockedWidget(widget=self.wid_filterwheel, title="Filterwheel"),
         )
 
         self.addDockWidget(
@@ -126,8 +133,10 @@ class MainWindow(QMainWindow):
 
     def refresh_param_values(self, omit_wid_camera=False):
         # TODO should be possible with lightparam, when it's implemented there remove here
+        # TODO Add shutter here
         self.wid_laser.wid_settings.refresh_widgets()
         self.wid_scan.wid_planar.refresh_widgets()
+        self.wid_filterwheel.refresh_widgets()
         self.wid_status.wid_volume.wid_volume.refresh_widgets()
         self.wid_status.wid_calibration.refresh_widgets()
         self.wid_status.wid_single_plane.wid_singleplane.refresh_widgets()
@@ -170,6 +179,7 @@ class MainWindow(QMainWindow):
         self.menuBar().setEnabled(enable)
         self.wid_laser.setEnabled(enable)
         self.wid_shutter.setEnabled(enable)
+        self.wid_filterwheel.setEnabled(enable)
         self.wid_status.setEnabled(enable)
         self.wid_scan.setEnabled(enable)
         self.wid_camera.setEnabled(enable)

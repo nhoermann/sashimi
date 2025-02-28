@@ -6,6 +6,7 @@ from lightparam.param_qt import ParametrizedQt
 from lightparam import Param, ParameterTree
 from sashimi.hardware.light_source import light_source_class_dict
 from sashimi.hardware.shutter import shutter_class_dict
+from sashimi.hardware.filterwheels import filterwheel_class_dict
 from typing import Union
 
 # from sashimi.hardware import light_source_class_dict
@@ -137,11 +138,10 @@ class CameraSettings(ParametrizedQt):
         self.exposure_time = Param(
             conf["camera"]["default_exposure"], (1, 1000), unit="ms"
         )
-        self.binning = Param(conf["camera"]["default_binning"], [1, 2, 4])
+        self.binning = Param(conf["camera"]["default_binning"], [1,2,4])
         self.roi = Param(
             roi_size, gui=False
         )  # order of params here is [hpos, vpos, hsize, vsize,]; h: horizontal, v: vertical
-
 
 class LightSourceSettings(ParametrizedQt):
     def __init__(self):
@@ -153,6 +153,12 @@ class ShutterSettings(ParametrizedQt):
     def __init__(self):
         super().__init__()
         self.name = "general/shutter"
+
+class FilterWheelSettings(ParametrizedQt):
+    def __init__(self):
+        super().__init__()
+        self.name = "general/filterwheel"
+        self.filter = Param(conf["filterwheel"]["default_filter"], conf["filterwheel"]["filter_options"])
 
 
 def convert_planar_params(planar: PlanarScanningSettings):
@@ -373,6 +379,13 @@ class State:
                 port=conf["shutter"]["port"]
             )
 
+        if self.conf["scopeless"]:
+            self.filterwheel = filterwheel_class_dict["mock"]()
+        else:
+            self.filterwheel = filterwheel_class_dict[conf["filterwheel"]["name"]](
+                port=conf["filterwheel"]["port"]
+            )
+
         self.camera = CameraProcess(
             stop_event=self.stop_event,
             wait_event=self.scanner.wait_signal,
@@ -422,6 +435,7 @@ class State:
         )
 
         self.shutter_settings = ShutterSettings()
+        self.filterwheel_settings = FilterWheelSettings()
 
         self.save_status: Optional[SavingStatus] = None
 
