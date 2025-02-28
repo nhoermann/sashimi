@@ -62,6 +62,7 @@ TEMPLATE_CONF_DICT = {
         "default_binning": 1,
     },
     "light_source": {"name": "mock", "port": "COM4", "intensity_units": "mock"},
+    "shutter": {"name": "mock", "port": "PXI6259/port0/line0"},
     "filterwheel":{"name": "mock", 
                    "port": "COM9", 
                    "default_filter": "Filter Position 1",
