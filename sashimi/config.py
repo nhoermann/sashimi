@@ -62,6 +62,11 @@ TEMPLATE_CONF_DICT = {
         "default_binning": 1,
     },
     "light_source": {"name": "mock", "port": "COM4", "intensity_units": "mock"},
+    "filterwheel":{"name": "mock", 
+                   "port": "COM9", 
+                   "default_filter": "Filter Position 1",
+                   "filter_options": "[ 'Filter Position 1', 'Filter Position 2', 'Filter Position 3',]"
+                   },
     #"external_communication": "none",
     "external_communication": {"name": "stytra", "address": "tcp://O1-589:5555"},
     "notifier": "none",
