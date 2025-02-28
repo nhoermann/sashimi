@@ -21,11 +21,10 @@ class AbstractFilterWheel(ABC):
         pass
 
     @property
-    @abstractmethod
-    def status(self):
+    def filter(self):
         pass
 
-    @status.setter
-    @abstractmethod
-    def status(self, val):
+    @filter.setter
+    def filter(self, desired_filter):
         pass
+        

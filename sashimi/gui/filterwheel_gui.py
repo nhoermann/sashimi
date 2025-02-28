@@ -16,10 +16,9 @@ class FilterWheelWidget(QWidget):
 
         self.main_layout = QHBoxLayout()
 
-        # self.state.filterwheel_settings.sig_param_changed.connect(self.update_on_bin_change)
-
         self.wid_filter_settings = ParameterGui(self.state.filterwheel_settings)
-        # self.wid_filter_settings.Changed.connect(self.set_filter)
+        
+        self.state.filterwheel_settings.sig_param_changed.connect(self.set_filter)
 
         self.main_layout.addWidget(self.wid_filter_settings)
         
@@ -28,5 +27,6 @@ class FilterWheelWidget(QWidget):
         self.setLayout(self.main_layout)
        
     def set_filter(self, new_filter):
-        self.state.filterwheel.filter = new_filter
-        print('Filter changed to (in UI): ', new_filter)
+        # Signal that is being sent is a dict in the form {'filter': 'MyFilter1'}
+        self.state.filterwheel.filter = new_filter['filter']
+        #print('Filter changed to (in UI): ', new_filter)

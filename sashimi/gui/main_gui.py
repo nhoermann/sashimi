@@ -133,8 +133,10 @@ class MainWindow(QMainWindow):
 
     def refresh_param_values(self, omit_wid_camera=False):
         # TODO should be possible with lightparam, when it's implemented there remove here
+        # TODO Add shutter here
         self.wid_laser.wid_settings.refresh_widgets()
         self.wid_scan.wid_planar.refresh_widgets()
+        self.wid_filterwheel.refresh_widgets()
         self.wid_status.wid_volume.wid_volume.refresh_widgets()
         self.wid_status.wid_calibration.refresh_widgets()
         self.wid_status.wid_single_plane.wid_singleplane.refresh_widgets()
@@ -177,6 +179,7 @@ class MainWindow(QMainWindow):
         self.menuBar().setEnabled(enable)
         self.wid_laser.setEnabled(enable)
         self.wid_shutter.setEnabled(enable)
+        self.wid_filterwheel.setEnabled(enable)
         self.wid_status.setEnabled(enable)
         self.wid_scan.setEnabled(enable)
         self.wid_camera.setEnabled(enable)

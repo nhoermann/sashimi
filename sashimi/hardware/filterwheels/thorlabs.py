@@ -1,5 +1,5 @@
 from warnings import warn
-from sashimi.hardware.filterwheel.interface import AbstractFilterWheel, FilterWheelWarning
+from sashimi.hardware.filterwheels.interface import AbstractFilterWheel, FilterWheelWarning
 from sashimi.config import read_config
 
 try:
@@ -14,6 +14,7 @@ conf = read_config()
 class FW102C_FilterWheel(AbstractFilterWheel):
     def __init__(self, port):
         super().__init__(port)
+
         self.socket = manager.open_resource(
             self.port,
             **{
@@ -25,15 +26,19 @@ class FW102C_FilterWheel(AbstractFilterWheel):
                 "encoding": "ascii",
             },
         )
-
-    def set_filter(self, filter_id):
+        self._filter = conf["filterwheel"]["default_filter"]
+        self.filter_options = conf["filterwheel"]["filter_options"]
+        self.set_filter(self._filter)
+    
+    def set_filter(self, new_filter):
+        # Convert new_filter string into id:
+        new_filter_id = self.filter_options.index(new_filter)+1
+        # Filters are not zero indexed, first entry is 1, second is position 2 etc.
         try:
-            if self._current > 0:
-                self.socket.query("ci")
-                self.socket.query("slc {:.1f}".format(self._current))
+            self.socket.query("pos={}".format(new_filter_id))
            
         except visa.VisaIOError:
-            warn("Filter not set. Laser was unreachable", FilterWheelWarning)
+            warn("Filter not set. Filterwheel was unreachable", FilterWheelWarning)
 
     def close(self):
         self.socket.close()
@@ -42,7 +47,8 @@ class FW102C_FilterWheel(AbstractFilterWheel):
     def filter(self):
         return self._filter
 
-    @intensity.setter
-    def intensity(self, exp_val):
-        self._current = exp_val
-        self.set_current()
+    @filter.setter
+    def filter(self, new_filter):
+        self._filter = new_filter
+        self.set_filter(new_filter)
+        #print("Filter set to: ", str(self._filter))
