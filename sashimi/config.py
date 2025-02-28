@@ -66,7 +66,7 @@ TEMPLATE_CONF_DICT = {
     "filterwheel":{"name": "mock", 
                    "port": "COM9", 
                    "default_filter": "Filter Position 1",
-                   "filter_options": "[ 'Filter Position 1', 'Filter Position 2', 'Filter Position 3',]"
+                   "filter_options": [ "Filter Position 1", "Filter Position 2", "Filter Position 3",]
                    },
     #"external_communication": "none",
     "external_communication": {"name": "stytra", "address": "tcp://O1-589:5555"},
