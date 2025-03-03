@@ -626,6 +626,8 @@ class State:
         to trigger the end of the experiment
         """
         self.logger.log_message("experiment ended")
+        if self.pause_after is True:
+            self.shutter.status = False
         self.is_saving_event.clear()
         self.experiment_start_event.clear()
         self.saver.save_queue.clear()
