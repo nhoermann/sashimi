@@ -42,3 +42,9 @@ class ShutterWidget(QWidget):
             self.btn_off.setText("ON")
             self.btn_off.setStyleSheet(self.style)
             self.state.shutter.status = False
+
+    def reset_shutter_button(self):
+        self.btn_off.setText("ON")
+        self.btn_off.setStyleSheet(self.style)
+
+

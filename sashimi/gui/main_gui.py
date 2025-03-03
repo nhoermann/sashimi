@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         self.wid_status = StatusWidget(st, self.timer)
         self.wid_display = ViewingWidget(st, self.timer, style)
         self.wid_save_options = SaveWidget(st, self.timer)
-        self.wid_laser = LightSourceWidget(st, self.timer)
+        #self.wid_laser = LightSourceWidget(st, self.timer)
         self.wid_shutter = ShutterWidget(st, self.timer)
         self.wid_filterwheel = FilterWheelWidget(st)
         self.wid_scan = PlanarScanningWidget(st)
@@ -64,10 +64,12 @@ class MainWindow(QMainWindow):
             DockedWidget(widget=self.wid_scan, title="Scanning settings"),
         )
 
+        '''
         self.addDockWidget(
             Qt.RightDockWidgetArea,
             DockedWidget(widget=self.wid_laser, title="Light source"),
         )
+        '''
 
         self.addDockWidget(
             Qt.RightDockWidgetArea,
@@ -134,7 +136,7 @@ class MainWindow(QMainWindow):
     def refresh_param_values(self, omit_wid_camera=False):
         # TODO should be possible with lightparam, when it's implemented there remove here
         # TODO Add shutter here
-        self.wid_laser.wid_settings.refresh_widgets()
+        # self.wid_laser.wid_settings.refresh_widgets()
         self.wid_scan.wid_planar.refresh_widgets()
         self.wid_status.wid_volume.wid_volume.refresh_widgets()
         self.wid_status.wid_calibration.refresh_widgets()
@@ -149,10 +151,10 @@ class MainWindow(QMainWindow):
     def check_end_experiment(self):
         if self.st.saver.saver_stopped_signal.is_set():
             self.st.end_experiment()
-            if self.st.pause_after:
+            if self.st.pause_after is True:
                 self.wid_status.setCurrentIndex(0)
-                self.wid_laser.btn_off.click()
-                self.wid_shutter.btn_off.click()
+                # self.wid_laser.btn_off.click()
+                self.wid_shutter.reset_shutter_button()
             self.refresh_param_values(omit_wid_camera=True)
             self.toolbar.experiment_progress.hide()
             self.toolbar.lbl_experiment_progress.hide()
@@ -176,7 +178,7 @@ class MainWindow(QMainWindow):
         and re-enables them after
         """
         self.menuBar().setEnabled(enable)
-        self.wid_laser.setEnabled(enable)
+        #self.wid_laser.setEnabled(enable)
         self.wid_shutter.setEnabled(enable)
         self.wid_filterwheel.setEnabled(enable)
         self.wid_status.setEnabled(enable)
