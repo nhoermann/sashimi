@@ -39,13 +39,14 @@ class VolumeScanningWidget(QWidget):
         self.setLayout(QVBoxLayout())
         self.wid_volume = ParameterGui(state.volume_setting)
         self.chk_pause = QCheckBox("Pause after experiment")
-
+    
         self.delta_z_layout = QHBoxLayout()
         self.delta_z_label = QLabel("Δz (µm)")
         self.delta_z_display = QLineEdit()
         self.delta_z_display.setReadOnly(True)
-        self.delta_z_layout.setContentsMargins(0, 0, 0, 0)
+        self.delta_z_layout.setContentsMargins(11, 11, 11, 11)
         self.delta_z_layout.addWidget(self.delta_z_label)
+        self.delta_z_layout.addStretch()
         self.delta_z_layout.addWidget(self.delta_z_display)
 
         self.wid_wave = WaveformWidget(timer=self.timer, state=self.state)
