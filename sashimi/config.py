@@ -1,7 +1,7 @@
+import copy
 from pathlib import Path
 import click
 import toml
-from lightparam import set_nested, get_nested
 
 CONFIG_FILENAME = "hardware_config.toml"
 CONFIG_DIR_PATH = Path.home() / ".sashimi"
@@ -42,6 +42,17 @@ TEMPLATE_CONF_DICT = {
             "max_val": 10,
         },
         "sync": {"channel": "/Dev1/ao/StartTrigger"},
+        # Software safety limits (see sashimi/hardware/scanning/galvo.py's
+        # GalvoAxis) checked before each value is written to hardware, on top
+        # of the AO task's own hardware range above ("write.min_val"/"max_val").
+        # Defaults match that hardware range so nothing previously allowed is
+        # newly rejected - narrow these to your actual safe per-channel travel.
+        "voltage_limits": {
+            "piezo": {"min_val": -5, "max_val": 10},
+            "lateral": {"min_val": -5, "max_val": 10},
+            "frontal": {"min_val": -5, "max_val": 10},
+            "camera_trigger": {"min_val": -5, "max_val": 10},
+        },
     },
     "piezo": {
         "scale": 1 / 40,
@@ -52,8 +63,31 @@ TEMPLATE_CONF_DICT = {
             "channel": "Dev2/ao0:1",
             "min_val": -5,
             "max_val": 10,
-        }
+        },
+        "voltage_limits": {
+            "lateral": {"min_val": -5, "max_val": 10},
+            "frontal": {"min_val": -5, "max_val": 10},
+        },
     },
+    # Optogenetics stimulation galvo pair + laser gate, on a dedicated NI card
+    # separate from z_board/xy_board (see sashimi/hardware/optogenetics/).
+    # "name" selects the driver from opto_conf_dict (sashimi/processes/optogenetics.py):
+    # "ni" or "mock".
+    "opto_board": {
+        "name": "mock",
+        "write": {
+            "x_channel": "Dev3/ao0",
+            "y_channel": "Dev3/ao1",
+            "gate_channel": "Dev3/port0/line0",
+        },
+        "voltage_limits": {
+            "x": {"min_val": -5, "max_val": 5},
+            "y": {"min_val": -5, "max_val": 5},
+        },
+    },
+    # "name" selects the driver from camera_class_dict (sashimi/hardware/cameras/__init__.py):
+    # "hamamatsu" (generic DCAM API, works with any Orca model), "kinetix" (Teledyne
+    # Photometrics, requires pyvcam + the PVCAM SDK), or "mock".
     "camera": {
         "id": 0,
         "name": "mock",
@@ -61,9 +95,13 @@ TEMPLATE_CONF_DICT = {
         "default_exposure": 60,
         "default_binning": 1,
     },
-    "light_source": {"name": "mock", "port": "COM4", "intensity_units": "mock"},
-    "external_communication": "none",
-    # "external_communication": {"name": "stytra", "address": "tcp://O1-589:5555"},
+    # A list of laser units (not a single laser): most units expose exactly one
+    # controllable channel (e.g. Cobolt), but combiner units such as Toptica
+    # CLE/MLE expose several channels over one connection - see
+    # sashimi/hardware/light_source/manager.py. "name" selects the driver from
+    # light_source_class_dict: "cobolt", "toptica_cle", "toptica_mle", or "mock".
+    "light_sources": [{"name": "mock", "port": "COM4", "intensity_units": "mock"}],
+    "external_communication": {"name": "stytra", "address": "tcp://O1-589:5555"},
     "notifier": "none",
     "notifier_options": {},
     "array_ram_MB": 450,
@@ -87,6 +125,53 @@ def write_default_config(file_path=CONFIG_PATH, template=TEMPLATE_CONF_DICT):
         toml.dump(template, f)
 
 
+def _migrate_config(conf, file_path):
+    """Upgrade a config dict written by an older sashimi version in place,
+    persisting the change so this only runs once per config file.
+
+    Currently handles:
+    - single `light_source` dict -> `light_sources` list (support for
+      multiple simultaneous laser units, e.g. Toptica CLE/MLE).
+    - missing `z_board`/`xy_board` `voltage_limits` (per-channel software
+      safety limits, see sashimi/hardware/scanning/galvo.py's GalvoAxis) -
+      defaulted to that board's existing hardware write range, so nothing
+      previously allowed is newly rejected.
+    - missing `opto_board` (added for the optogenetics stimulation
+      subsystem) - defaulted to the mock driver, so existing configs don't
+      need real optogenetics hardware to keep working.
+    """
+    migrated = False
+
+    if "light_source" in conf and "light_sources" not in conf:
+        conf["light_sources"] = [conf.pop("light_source")]
+        migrated = True
+
+    board_channels = {
+        "z_board": ["piezo", "lateral", "frontal", "camera_trigger"],
+        "xy_board": ["lateral", "frontal"],
+    }
+    for board, channel_names in board_channels.items():
+        if board in conf and "voltage_limits" not in conf[board]:
+            default_limits = {
+                "min_val": conf[board]["write"]["min_val"],
+                "max_val": conf[board]["write"]["max_val"],
+            }
+            conf[board]["voltage_limits"] = {
+                name: dict(default_limits) for name in channel_names
+            }
+            migrated = True
+
+    if "opto_board" not in conf:
+        conf["opto_board"] = copy.deepcopy(TEMPLATE_CONF_DICT["opto_board"])
+        migrated = True
+
+    if migrated:
+        with open(file_path, "w") as f:
+            toml.dump(conf, f)
+
+    return conf
+
+
 def read_config(file_path=CONFIG_PATH):
     """Read Sashimi config.
 
@@ -105,7 +190,27 @@ def read_config(file_path=CONFIG_PATH):
     if not file_path.exists():
         write_default_config()
 
-    return toml.load(file_path)
+    return _migrate_config(toml.load(file_path), file_path)
+
+
+def _get_nested(d, path):
+    """Like lightparam's get_nested, but also accepts integer path segments
+    (as strings, e.g. "0") to index into lists - needed since
+    hardware_config.toml has list-valued sections (e.g. `light_sources`).
+    """
+    current = d
+    for key in path:
+        current = current[int(key)] if isinstance(current, list) else current[key]
+    return current
+
+
+def _set_nested(d, path, val):
+    parent = _get_nested(d, path[:-1])
+    last_key = path[-1]
+    if isinstance(parent, list):
+        parent[int(last_key)] = val
+    else:
+        parent[last_key] = val
 
 
 def write_config_value(dict_path, val, file_path=CONFIG_PATH):
@@ -116,7 +221,7 @@ def write_config_value(dict_path, val, file_path=CONFIG_PATH):
     ----------
     dict_path : str or list of strings
         Full path of the section to configure
-        (e.g., ["piezo", "position_read", "min_val"])
+        (e.g., ["piezo", "position_read", "min_val"], or ["light_sources", "0", "port"])
     val :
         New value.
     file_path : Path object
@@ -129,7 +234,7 @@ def write_config_value(dict_path, val, file_path=CONFIG_PATH):
 
     # Read and set:
     conf = read_config(file_path=file_path)
-    set_nested(conf, dict_path, val)
+    _set_nested(conf, dict_path, val)
 
     # Write:
     with open(file_path, "w") as f:
@@ -161,7 +266,7 @@ def cli_edit_config(name=None, val=None, file_path=CONFIG_PATH):
     # Cast the type of the previous variable
     # (to avoid overwriting values with strings)
     dict_path = name.split(".")
-    old_val = get_nested(conf, dict_path)
+    old_val = _get_nested(conf, dict_path)
     val = type(old_val)(val)  # Convert to keep the same type
 
     write_config_value(dict_path, val, file_path)
