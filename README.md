@@ -100,14 +100,17 @@ More information on its usage can be found by asking `sashimi-config` for help:
 
     sashimi-config --help
    
-You can add and modify parameters just from the command line. For example, to set the piezo waveform readout channel to `Dev1/ao0:0` just run:
+You can add and modify parameters just from the command line. For example, to set the analog output
+channel range used to command the piezo (and the two lightsheet-height galvos and camera trigger, which
+share it) to `Dev1/ao0:3` just run:
 
-    sashimi-config edit -n z_board.write.channel -v Dev1/ao0:0
-    
-Or to modify the minimum and maximum voltage (in Volts) of the channel:
-    
-    sashimi-config edit -n piezo.position_write.min_val -v 0
-    sashimi-config edit -n piezo.position_write.max_val -v 10
+    sashimi-config edit -n z_board.write.channel -v Dev1/ao0:3
+
+Or to modify the piezo's own software safety voltage limits (in Volts, checked before each value is
+written to hardware - see `sashimi/hardware/scanning/galvo.py`):
+
+    sashimi-config edit -n z_board.voltage_limits.piezo.min_val -v 0
+    sashimi-config edit -n z_board.voltage_limits.piezo.max_val -v 10
     
 
 ## Starting the software from command line
