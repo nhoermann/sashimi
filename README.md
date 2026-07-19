@@ -4,7 +4,7 @@
 
 
 
-![tests](https://github.com/portugueslab/sashimi/workflows/tests/badge.svg?branch=master)
+[![tests](https://github.com/nhoermann/sashimi/actions/workflows/main.yml/badge.svg)](https://github.com/nhoermann/sashimi/actions/workflows/main.yml)
 [![Docs](https://img.shields.io/badge/docs-dev-brightgreen)](https://portugueslab.github.io/sashimi/)
 [![Coverage Status](https://coveralls.io/repos/github/portugueslab/sashimi/badge.svg)](https://coveralls.io/github/portugueslab/sashimi)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
