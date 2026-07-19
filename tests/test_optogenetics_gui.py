@@ -141,6 +141,24 @@ def test_add_and_remove_calibration_point(qtbot):
     assert len(state.opto_calibration.calibration_points) == 0
 
 
+def test_add_calibration_point_consumes_the_marker(qtbot):
+    # Regression check: add_calibration_point used to leave the just-added
+    # marker sitting in calib_point_layer.data, so a second click without
+    # drawing a new point would silently re-add it as a duplicate.
+    state = FakeStateWithOptogenetics()
+    wid_display = FakeWidDisplay()
+    widget = OptogeneticsSettingsWidget(state, wid_display)
+    qtbot.addWidget(widget)
+
+    wid_display.opto_calib_point_layer.data = [(20, 10)]
+    widget.add_calibration_point()
+    assert len(wid_display.opto_calib_point_layer.data) == 0
+
+    # A second click with no new point drawn must be a no-op, not a duplicate:
+    widget.add_calibration_point()
+    assert len(state.opto_calibration.calibration_points) == 1
+
+
 def test_park_at_manual_position_sends_small_square_in_galvo_volts(qtbot):
     state = FakeStateWithOptogenetics()
     wid_display = FakeWidDisplay()

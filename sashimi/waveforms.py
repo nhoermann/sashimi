@@ -294,6 +294,16 @@ def generate_stim_waveform(
     dwell_samples = max(1, round(dwell_time * sample_rate))
     transit_samples = max(0, round(transit_time * sample_rate))
 
+    # Each ROI's own waveform (raster_fill_waveform/spiral_waveform) only
+    # gates off *within* that single ROI's own closed loop - it has no idea
+    # where the previous ROI in this list left off. Bridge each ROI-to-ROI
+    # jump with an explicit gate-off transit segment here, with a floor of 1
+    # sample so a user-configured transit_time of 0 can't remove the only
+    # thing keeping the laser off while the galvo crosses disjoint regions
+    # (this also covers pattern="spiral", whose own waveform is otherwise
+    # gated on for its entire path).
+    inter_roi_transit_samples = max(1, transit_samples) if len(rois) > 1 else 0
+
     xy_segments, gate_segments = [], []
     for roi in rois:
         if pattern == "raster":
@@ -306,6 +316,14 @@ def generate_stim_waveform(
             xy, gate = spiral_waveform(center, radius, n_points, revolutions)
         else:
             raise ValueError(f"Unknown pattern {pattern!r}.")
+
+        if xy_segments and inter_roi_transit_samples > 0:
+            prev_end = xy_segments[-1][:, -1]
+            frac = np.linspace(0, 1, inter_roi_transit_samples, endpoint=False)
+            bridge_xy = prev_end[:, None] + (xy[:, :1] - prev_end[:, None]) * frac
+            xy_segments.append(bridge_xy)
+            gate_segments.append(np.zeros(inter_roi_transit_samples, dtype=bool))
+
         xy_segments.append(xy)
         gate_segments.append(gate)
 

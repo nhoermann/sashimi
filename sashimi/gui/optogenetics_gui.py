@@ -168,6 +168,10 @@ class OptogeneticsSettingsWidget(QWidget):
             self.manual_galvo_settings.galvo_x,
             self.manual_galvo_settings.galvo_y,
         )
+        # Consume the marker now that it's recorded, so a second click
+        # without drawing a new point can't silently re-add the same stale
+        # marker as a duplicate calibration point.
+        self.calib_point_layer.data = self.calib_point_layer.data[:-1]
         self.update_calib_label()
 
     def remove_calibration_point(self):

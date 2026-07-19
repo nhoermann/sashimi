@@ -168,20 +168,24 @@ def convert_stim_parameters(settings: OptogeneticsSettings, calibration, pixel_r
     StimParameters ready for OptogeneticsProcess, using the fitted
     pixel->galvo affine calibration (OptoCalibration.pixel_to_galvo).
 
-    `pixel_rois` matches settings.pattern: for "raster", a list of (M, 2)
-    pixel-coordinate polygons; for "spiral", a list of
-    (center_px, radius_px) tuples.
+    `pixel_rois` is always a list of (M, 2) pixel-coordinate polygons - the
+    GUI only ever draws polygons (see optogenetics_gui.py's
+    toggle_stimulation, which builds pixel_rois from a napari shapes layer
+    locked to Mode.ADD_POLYGON), regardless of settings.pattern. For
+    "spiral", each polygon is reduced to a covering circle: the center is
+    the polygon's centroid and the radius is the largest distance from that
+    center to any of its (galvo-mapped) vertices.
     """
     if settings.pattern == "raster":
         galvo_rois = [calibration.pixel_to_galvo(polygon) for polygon in pixel_rois]
     elif settings.pattern == "spiral":
         galvo_rois = []
-        for center_px, radius_px in pixel_rois:
-            center_galvo = calibration.pixel_to_galvo([center_px])[0]
-            edge_galvo = calibration.pixel_to_galvo(
-                [[center_px[0] + radius_px, center_px[1]]]
-            )[0]
-            radius_galvo = float(np.linalg.norm(edge_galvo - center_galvo))
+        for polygon_px in pixel_rois:
+            galvo_polygon = calibration.pixel_to_galvo(np.atleast_2d(polygon_px))
+            center_galvo = galvo_polygon.mean(axis=0)
+            radius_galvo = float(
+                np.max(np.linalg.norm(galvo_polygon - center_galvo, axis=1))
+            )
             galvo_rois.append((tuple(center_galvo), radius_galvo))
     else:
         raise ValueError(f"Unknown pattern {settings.pattern!r}")

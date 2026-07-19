@@ -132,3 +132,29 @@ def test_migrate_missing_opto_board(conf_path):
     # Migration is persisted, not just applied in-memory:
     reloaded = config.read_config(file_path=conf_path)
     assert reloaded["opto_board"] == conf["opto_board"]
+
+
+def test_migrate_opto_board_missing_voltage_limits(conf_path):
+    """Configs from an earlier build of the optogenetics feature can have an
+    `opto_board` key present but no `voltage_limits` sub-key; reading them
+    should backfill it rather than leave the GUI to crash with a KeyError
+    the first time it accesses state.conf['opto_board']['voltage_limits']."""
+    import copy
+
+    old_style_conf = copy.deepcopy(config.TEMPLATE_CONF_DICT)
+    del old_style_conf["opto_board"]["voltage_limits"]
+    config.write_default_config(file_path=conf_path, template=old_style_conf)
+
+    conf = config.read_config(file_path=conf_path)
+    assert (
+        conf["opto_board"]["voltage_limits"]
+        == config.TEMPLATE_CONF_DICT["opto_board"]["voltage_limits"]
+    )
+    # The rest of opto_board (e.g. a custom "name"/"write") must survive migration:
+    assert conf["opto_board"]["name"] == old_style_conf["opto_board"]["name"]
+
+    # Migration is persisted, not just applied in-memory:
+    reloaded = config.read_config(file_path=conf_path)
+    assert (
+        reloaded["opto_board"]["voltage_limits"] == conf["opto_board"]["voltage_limits"]
+    )

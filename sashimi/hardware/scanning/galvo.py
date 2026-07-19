@@ -18,14 +18,18 @@ from sashimi.hardware.scanning.units import Voltage, VoltageRange
 def validate_ni_channel(channel_name: str) -> str:
     """Sanity-check an NI-DAQ channel/terminal name's format at config-load
     time (adapted from dirigo's validate_ni_channel). This only catches
-    obviously malformed strings early; it does not check the name against a
-    live device; the write task itself already validates that.
+    obviously malformed strings early (empty, or a nonsensical number of
+    slashes); it does not require the 'device/channel' syntax, since
+    NI-MAX-defined channel aliases are valid nidaqmx channel names with no
+    slash at all. It does not check the name against a live device either;
+    the write task itself already validates that.
     """
-    if "/" not in channel_name or channel_name.count("/") > 3:
+    if not channel_name or not channel_name.strip() or channel_name.count("/") > 3:
         raise ValueError(
             f"Invalid channel name format, {channel_name!r}. Valid formats: "
-            f"'[device]/[channel]' or '/[device]/[terminal]'. "
-            f"Examples: 'Dev1/ao0', '/Dev1/PFI4'."
+            f"'[device]/[channel]', '/[device]/[terminal]', or a bare "
+            f"NI-MAX-defined channel alias. Examples: 'Dev1/ao0', "
+            f"'/Dev1/PFI4', 'MyAliasName'."
         )
     return channel_name
 

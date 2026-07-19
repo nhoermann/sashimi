@@ -80,7 +80,12 @@ def test_convert_stim_parameters_raster_converts_polygon_vertices():
     )  # offset-only transform: galvo = pixel + 1
 
 
-def test_convert_stim_parameters_spiral_converts_center_and_radius():
+def test_convert_stim_parameters_spiral_converts_polygon_to_covering_circle():
+    # Regression check: pixel_rois is always a list of (M, 2) polygons - the
+    # GUI only ever draws polygons (see optogenetics_gui.py's
+    # toggle_stimulation), regardless of settings.pattern, so "spiral" must
+    # accept the same polygon shape "raster" does, not a pre-built
+    # (center, radius) tuple.
     calib = OptoCalibration()
     # Pure 2x scale transform: galvo = 2 * pixel
     for px, py, gx, gy in [(0, 0, 0, 0), (1, 0, 2, 0), (0, 1, 0, 2)]:
@@ -89,9 +94,12 @@ def test_convert_stim_parameters_spiral_converts_center_and_radius():
     settings = OptogeneticsSettings()
     settings.pattern = "spiral"
 
-    stim_params = convert_stim_parameters(settings, calib, [((5, 5), 3.0)])
+    # A square centered at (5, 5) with corners 2 pixels out:
+    square = np.array([[3, 3], [7, 3], [7, 7], [3, 7]])
+    stim_params = convert_stim_parameters(settings, calib, [square])
 
     assert stim_params.pattern == "spiral"
     center, radius = stim_params.rois[0]
-    np.testing.assert_allclose(center, (10, 10), atol=1e-8)
-    assert radius == pytest.approx(6.0, abs=1e-8)  # 2x scale doubles radius too
+    np.testing.assert_allclose(center, (10, 10), atol=1e-8)  # centroid * 2
+    # Radius covers the farthest (galvo-mapped) corner, not just an average:
+    np.testing.assert_allclose(radius, 2 * np.hypot(2, 2), atol=1e-8)

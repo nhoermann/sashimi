@@ -127,12 +127,17 @@ def test_galvo_axis_validates_range():
 
 def test_galvo_axis_rejects_malformed_channel():
     with pytest.raises(ValueError):
-        GalvoAxis("not_a_channel", {"min_val": -5, "max_val": 5})
+        GalvoAxis("", {"min_val": -5, "max_val": 5})
+    with pytest.raises(ValueError):
+        GalvoAxis("a/b/c/d/e", {"min_val": -5, "max_val": 5})
 
 
 def test_validate_ni_channel_accepts_common_formats():
     assert validate_ni_channel("Dev1/ao0") == "Dev1/ao0"
     assert validate_ni_channel("/Dev1/PFI4") == "/Dev1/PFI4"
+    # NI-MAX-defined channel aliases are valid nidaqmx channel names with no
+    # device/channel slash syntax at all - must not be rejected.
+    assert validate_ni_channel("MyAliasName") == "MyAliasName"
 
 
 def test_units_angle_and_voltage_range():
@@ -254,3 +259,33 @@ def test_generate_stim_waveform_multiple_rois_all_represented():
 def test_generate_stim_waveform_rejects_empty_rois():
     with pytest.raises(ValueError):
         generate_stim_waveform([], sample_rate=1000, n_samples=100)
+
+
+def test_generate_stim_waveform_spiral_multi_roi_gates_off_between_rois():
+    # Regression check: spiral_waveform is gated on for its whole path (no
+    # fly-back within one ROI), but concatenating 2+ spirals used to leave
+    # the gate True across the straight-line jump between them.
+    far_apart_rois = [((0, 0), 1.0), ((50, 50), 1.0)]
+    xy, gate = generate_stim_waveform(
+        far_apart_rois, sample_rate=1000, n_samples=2000, pattern="spiral"
+    )
+    assert not gate.all()  # at least one gate-off sample must exist now
+    assert gate.any()  # but the spirals themselves are still gated on
+
+
+def test_generate_stim_waveform_raster_gates_off_between_rois_even_with_zero_transit():
+    # Regression check: with transit_time=0, point_dwell_sequence's own
+    # per-ROI transit segment (length 0) stopped providing any gate-off
+    # protection at all, so the gate stayed True across the jump between two
+    # disjoint ROIs.
+    square_a = UNIT_SQUARE
+    square_b = UNIT_SQUARE + 10
+    xy, gate = generate_stim_waveform(
+        [square_a, square_b],
+        sample_rate=1000,
+        n_samples=20_000,
+        pattern="raster",
+        dwell_time=0.01,
+        transit_time=0.0,
+    )
+    assert not gate.all()

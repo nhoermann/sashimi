@@ -19,13 +19,14 @@ gate line.
 
 import threading
 from contextlib import contextmanager
+from warnings import warn
 
 import numpy as np
 import nidaqmx
 from nidaqmx.constants import AcquisitionType, LineGrouping
 from nidaqmx.stream_writers import AnalogMultiChannelWriter, DigitalSingleChannelWriter
 
-from sashimi.hardware.optogenetics.interface import AbstractOptoInterface
+from sashimi.hardware.optogenetics.interface import AbstractOptoInterface, OptoWarning
 from sashimi.hardware.scanning.galvo import GalvoAxis
 from sashimi.waveforms import generate_stim_waveform
 
@@ -94,9 +95,31 @@ class OptoNIBoard(AbstractOptoInterface):
         xy[1, :] = self._y_axis.validate(xy[1, :])
         return xy, gate
 
+    def _safe_buffer(self):
+        """Generate the next output buffer, falling back to an all-zero,
+        gate-off buffer (laser off, galvo parked at 0V) if the current
+        StimParameters can't be turned into a valid waveform - e.g. an
+        out-of-range calibration point, or an ROI too small for the
+        configured raster spacing. Never raises, so a bad parameter can't
+        kill the writer thread and leave the laser gate stuck at whatever it
+        last was.
+        """
+        try:
+            return self._generate_buffer()
+        except ValueError as e:
+            warn(
+                f"Optogenetics waveform generation failed ({e}); "
+                f"gating laser off until parameters are corrected.",
+                OptoWarning,
+            )
+            return (
+                np.zeros((2, self.n_samples)),
+                np.zeros(self.n_samples, dtype=bool),
+            )
+
     def _writer_loop(self):
         while not self._stop_event.is_set():
-            xy, gate = self._generate_buffer()
+            xy, gate = self._safe_buffer()
             try:
                 self._ao_writer.write_many_sample(xy)
                 self._do_writer.write_many_sample_port_byte(gate.astype(np.uint8))
@@ -128,7 +151,7 @@ class OptoNIBoard(AbstractOptoInterface):
         )
         self._do_writer = DigitalSingleChannelWriter(self._do_task.out_stream)
 
-        initial_xy, initial_gate = self._generate_buffer()
+        initial_xy, initial_gate = self._safe_buffer()
         self._ao_writer.write_many_sample(initial_xy)
         self._do_writer.write_many_sample_port_byte(initial_gate.astype(np.uint8))
 

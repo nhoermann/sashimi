@@ -139,6 +139,9 @@ def _migrate_config(conf, file_path):
     - missing `opto_board` (added for the optogenetics stimulation
       subsystem) - defaulted to the mock driver, so existing configs don't
       need real optogenetics hardware to keep working.
+    - `opto_board` present but missing `voltage_limits` (e.g. from an
+      earlier build of this feature) - defaulted the same way as
+      z_board/xy_board above, since the GUI accesses it unconditionally.
     """
     migrated = False
 
@@ -163,6 +166,11 @@ def _migrate_config(conf, file_path):
 
     if "opto_board" not in conf:
         conf["opto_board"] = copy.deepcopy(TEMPLATE_CONF_DICT["opto_board"])
+        migrated = True
+    elif "voltage_limits" not in conf["opto_board"]:
+        conf["opto_board"]["voltage_limits"] = copy.deepcopy(
+            TEMPLATE_CONF_DICT["opto_board"]["voltage_limits"]
+        )
         migrated = True
 
     if migrated:

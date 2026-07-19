@@ -3,6 +3,15 @@ from dataclasses import dataclass, field
 from typing import List
 
 
+class OptoWarning(Warning):
+    """Raised (via warnings.warn) when the optogenetics stimulation waveform
+    can't be generated/validated for the currently-set StimParameters - the
+    board falls back to a laser-off buffer rather than crashing or freezing
+    at its last output (see sashimi/hardware/optogenetics/ni.py)."""
+
+    pass
+
+
 @dataclass
 class StimParameters:
     """One or several ROIs and the pattern used to scan them, passed from

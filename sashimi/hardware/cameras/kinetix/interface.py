@@ -107,13 +107,18 @@ class KinetixCamera(AbstractCamera):
     def roi(self, exp_val: tuple):
         """`exp_val` is expressed in the current (post-binning) displayed
         pixel grid, matching the convention used by the Hamamatsu driver and
-        by CameraSettings.roi in state.py - so it is scaled up by the binning
-        factor to full-sensor pixels before being sent to the camera, since
-        PVCAM's ROI is always expressed in full-sensor pixel coordinates.
+        by CameraSettings.roi in state.py: (vpos, hpos, vsize, hsize), i.e.
+        (row_min, col_min, row_size, col_size). It is scaled up by the
+        binning factor to full-sensor pixels before being sent to the
+        camera, since PVCAM's ROI is always expressed in full-sensor pixel
+        coordinates.
         """
         self._roi = tuple(i * self.binning for i in exp_val)
-        x_min, y_min, x_size, y_size = self._roi
-        self.camera.set_roi(x_min, y_min, x_size, y_size)
+        vpos, hpos, vsize, hsize = self._roi
+        # pyvcam's set_roi(s1, p1, w, h) takes serial (column/x) then
+        # parallel (row/y) - the opposite axis order from the (row, col)
+        # convention above - so swap on the way in.
+        self.camera.set_roi(hpos, vpos, hsize, vsize)
 
     @property
     def trigger_mode(self):
@@ -152,7 +157,8 @@ class KinetixCamera(AbstractCamera):
 
     @property
     def frame_shape(self):
-        return (self._roi[3] // self.binning, self._roi[2] // self.binning)
+        # self._roi is (vpos, hpos, vsize, hsize) - (rows, cols) for reshape.
+        return (self._roi[2] // self.binning, self._roi[3] // self.binning)
 
     def shutdown(self):
         super().shutdown()

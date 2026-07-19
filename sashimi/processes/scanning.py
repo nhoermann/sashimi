@@ -120,7 +120,12 @@ class ScannerProcess(LoggingProcess):
                     )
                     if issubclass(loop, VolumetricScanLoop):
                         first_volume_run = False
-                except ScanningError as e:
+                except (ScanningError, ValueError) as e:
+                    # ValueError also covers GalvoAxis.validate rejecting an
+                    # out-of-range waveform sample (see
+                    # sashimi/hardware/scanning/galvo.py) - treated the same
+                    # as a ScanningError so a bad calibration/parameter
+                    # doesn't silently kill this subprocess mid-experiment.
                     warn("NI error " + e.__repr__())
                     scanloop.initialize()
                 self.parameters = deepcopy(

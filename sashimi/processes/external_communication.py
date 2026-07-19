@@ -74,7 +74,14 @@ class ExternalComm(LoggingProcess):
                 self.current_stytra_config = new_stytra_config
 
             if self.trigger_condition():
-                current_config = dict(lightsheet=clean_json(self.current_settings))
+                current_config = dict(
+                    lightsheet=clean_json(self.current_settings),
+                    # Tells stytra's ZmqTrigger it's safe to reply with the
+                    # newer {"duration", "tracking_data_path"} dict instead
+                    # of a bare duration number - see
+                    # stytra/triggering/__init__.py's ZmqTrigger.check_trigger.
+                    supports_tracking_data_path=True,
+                )
                 if self.current_stytra_config is not None:
                     current_config["stytra"] = clean_json(self.current_stytra_config)
 
