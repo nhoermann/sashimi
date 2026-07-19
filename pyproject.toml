@@ -1,5 +1,5 @@
 [tool.black]
-target-version = ['py36', 'py37', 'py38']
+target-version = ['py310', 'py311', 'py312']
 skip-string-normalization = false
 exclude = '''
 (
@@ -15,6 +15,7 @@ exclude = '''
     | build
     | dist
     | examples
+    | sashimi/lightparam
   )/
 )
 '''

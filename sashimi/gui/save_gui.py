@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QCheckBox,
 )
-from lightparam.gui import ParameterGui
+from sashimi.lightparam.gui import ParameterGui
 from sashimi.state import State
 from pathlib import Path
 

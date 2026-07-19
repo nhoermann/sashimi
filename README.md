@@ -9,7 +9,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/portugueslab/sashimi/badge.svg)](https://coveralls.io/github/portugueslab/sashimi)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4122062.svg)](https://doi.org/10.5281/zenodo.4122062)
-[![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 
 Sashimi is a user-friendly software for efficient control of digital scanned light sheet microscopes (DSLMs).
 It is developed by members of the [PortuguesLab](http://www.portugueslab.com/)
@@ -36,12 +36,15 @@ It is a good practice to create an environment for every project. The provided `
 You can activate the environment by running:
 
     conda activate sashimi
-    
-After this you moght have to install two extra dependencies for controlling a Cobolt laser:
 
-    pip install pyvisa
-    pip install pyvisa-py
-    
+`pyvisa`/`pyvisa-py` (used to control Cobolt/Toptica lasers) and `pyserial` are now regular
+entries in `requirements.txt` and installed automatically with the steps below.
+
+Some cameras require an additional vendor driver/SDK installed on the acquisition PC
+(not pip-installable): Hamamatsu cameras need the DCAM API/runtime, and Kinetix
+(Teledyne Photometrics) cameras need the PVCAM SDK plus the `pyvcam` Python wrapper
+(`pip install pyvcam`, only needed if you have Kinetix hardware).
+
 ### Install with pip
 
 For a non-editable installation run:

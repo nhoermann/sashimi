@@ -490,9 +490,9 @@ class HamamatsuCamera(AbstractCamera):
         last = -1
         while prop_id.value != last:
             last = prop_id.value
-            properties[
-                self.convert_property_name(c_buf.value.decode("utf-8"))
-            ] = prop_id.value
+            properties[self.convert_property_name(c_buf.value.decode("utf-8"))] = (
+                prop_id.value
+            )
             ret = self.dcam.dcamprop_getnextid(
                 self.camera_handle,
                 ctypes.byref(prop_id),

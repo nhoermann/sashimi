@@ -2,12 +2,12 @@ name: sashimi
 channels:
   - conda-forge
 dependencies:
-  - python=3.8
+  - python=3.12
   - pip
   - pyqt
   - numpy
   - scipy
-  - numba >= 0.55.1
+  - numba >= 0.59.0
   - pandas
   - pytables
   - ffmpeg

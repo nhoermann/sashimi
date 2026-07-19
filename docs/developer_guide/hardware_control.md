@@ -32,6 +32,8 @@ The external trigger interface allows synchronizing Sashimi with behavioral soft
 
 There’s a module that allows for a built-in connection between Sashimi and [Stytra](https://www.portugueslab.com/stytra/index.html) [[1](references.html#id1)],[[2](references.html#id2)], an open-source software package, designed to cover all the general requirements involved in larval zebrafish behavioral experiments. Once an experiment protocol is ready, and both software are set up correctly, [Stytra](https://www.portugueslab.com/stytra/index.html) will stand by and wait for a message from the acquisition software (Sashimi) to start the experiment. This message is automatically sent once the acquisition start is triggered in the Sashimi GUI.
 
+The trigger message also carries a `stytra` key with the visual-stimulation protocol name and, per behavior camera, whether tail/heart-rate/pectoral-fin tracking is enabled (see the "Stytra" panel in the main GUI, and `sashimi.state.convert_stytra_config`) - matching Stytra's own role-based multi-camera tracking configuration. Stytra's reply now also reports the path it saved this run's tracking data under, shown in the same panel, in addition to the experiment duration used to update Sashimi's acquisition length.
+
 ## Scanning Interface
 
 The scanning interface is the more complicated interface since it needs to handle the NI board which in turn controls the scanning hardware.

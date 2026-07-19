@@ -1,13 +1,54 @@
 from sashimi.gui.main_gui import MainWindow
-from sashimi.state import State, TriggerSettings
+from sashimi.gui.light_source_gui import LightSourceWidget
+from sashimi.state import State, TriggerSettings, LightSourceSettings
+from sashimi.hardware.light_source.manager import LightSourceManager
 import qdarkstyle
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from split_dataset import SplitDataset
 
 
 class MockEvt:
     def accept(self):
         pass
+
+
+class FakeStateWithTwoLasers:
+    """Minimal stand-in for State exposing just what LightSourceWidget needs,
+    so this test doesn't have to spin up the full hardware/process stack to
+    check multi-channel layout."""
+
+    def __init__(self):
+        self.light_source_manager = LightSourceManager(
+            [
+                {"name": "mock", "port": "COM1", "intensity_units": "mW"},
+                {"name": "mock", "port": "COM2", "intensity_units": "mW"},
+            ]
+        )
+        self.light_source_settings = [
+            LightSourceSettings(label=channel.label, intensity_units="mW")
+            for channel in self.light_source_manager.channels
+        ]
+
+
+def test_light_source_widget_multiple_channels(qtbot):
+    state = FakeStateWithTwoLasers()
+    timer = QTimer()
+    widget = LightSourceWidget(state, timer)
+    qtbot.addWidget(widget)
+
+    assert len(widget.channel_widgets) == 2
+    assert widget.channel_widgets[0].channel.label == "COM1"
+    assert widget.channel_widgets[1].channel.label == "COM2"
+
+    # Turning one channel on shouldn't affect the other:
+    widget.channel_widgets[0].previous_current = 3
+    widget.channel_widgets[0].toggle()
+    assert widget.channel_widgets[0].channel.intensity == 3
+    assert widget.channel_widgets[1].channel.intensity == 0
+
+    widget.turn_all_off()
+    assert widget.channel_widgets[0].channel.intensity == 0
+    assert not widget.channel_widgets[0].laser_on
 
 
 def test_main(qtbot, temp_path):

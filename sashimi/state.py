@@ -2,12 +2,11 @@ import numpy as np
 from multiprocessing import Manager as MultiprocessingManager
 from queue import Empty
 from typing import Optional
-from lightparam.param_qt import ParametrizedQt
-from lightparam import Param, ParameterTree
-from sashimi.hardware.light_source import light_source_class_dict
+from sashimi.lightparam.param_qt import ParametrizedQt
+from sashimi.lightparam import Param, ParameterTree
+from sashimi.hardware.light_source.manager import LightSourceManager
 from typing import Union
 
-# from sashimi.hardware import light_source_class_dict
 from sashimi.processes.scanning import ScannerProcess
 from sashimi.hardware.scanning.scanloops import (
     ScanningState,
@@ -23,6 +22,8 @@ from sashimi.hardware.scanning.scanloops import (
 from sashimi.processes.external_communication import ExternalComm
 from sashimi.processes.dispatcher import VolumeDispatcher
 from sashimi.processes.logging import ConcurrenceLogger
+from sashimi.processes.optogenetics import OptogeneticsProcess
+from sashimi.hardware.optogenetics.interface import StimParameters
 from multiprocessing import Event
 import json
 from sashimi.processes.camera import (
@@ -143,10 +144,106 @@ class CameraSettings(ParametrizedQt):
 
 
 class LightSourceSettings(ParametrizedQt):
+    def __init__(self, label="light_source", intensity_units="mock", max_intensity=40):
+        super().__init__()
+        # Must be unique per channel so distinct channels don't collide in the
+        # settings_tree (see State.__init__).
+        self.name = f"general/light_source/{label}"
+        self.intensity = Param(0, (0, max_intensity), unit=intensity_units)
+
+
+class OptogeneticsSettings(ParametrizedQt):
     def __init__(self):
         super().__init__()
-        self.name = "general/light_source"
-        self.intensity = Param(0, (0, 40), unit=conf["light_source"]["intensity_units"])
+        self.name = "general/optogenetics"
+        self.pattern = Param("raster", ["raster", "spiral"])
+        self.dwell_time_ms = Param(1.0, (0.01, 100), unit="ms")
+        self.transit_time_ms = Param(0.2, (0.0, 50), unit="ms")
+        self.spacing = Param(0.05, (0.001, 2.0), unit="V")
+        self.revolutions = Param(3, (1, 20))
+
+
+def convert_stim_parameters(settings: OptogeneticsSettings, calibration, pixel_rois):
+    """Convert user-drawn ROIs (in camera pixel coordinates) into a
+    StimParameters ready for OptogeneticsProcess, using the fitted
+    pixel->galvo affine calibration (OptoCalibration.pixel_to_galvo).
+
+    `pixel_rois` matches settings.pattern: for "raster", a list of (M, 2)
+    pixel-coordinate polygons; for "spiral", a list of
+    (center_px, radius_px) tuples.
+    """
+    if settings.pattern == "raster":
+        galvo_rois = [calibration.pixel_to_galvo(polygon) for polygon in pixel_rois]
+    elif settings.pattern == "spiral":
+        galvo_rois = []
+        for center_px, radius_px in pixel_rois:
+            center_galvo = calibration.pixel_to_galvo([center_px])[0]
+            edge_galvo = calibration.pixel_to_galvo(
+                [[center_px[0] + radius_px, center_px[1]]]
+            )[0]
+            radius_galvo = float(np.linalg.norm(edge_galvo - center_galvo))
+            galvo_rois.append((tuple(center_galvo), radius_galvo))
+    else:
+        raise ValueError(f"Unknown pattern {settings.pattern!r}")
+
+    return StimParameters(
+        rois=galvo_rois,
+        pattern=settings.pattern,
+        dwell_time=settings.dwell_time_ms / 1000,
+        transit_time=settings.transit_time_ms / 1000,
+        spacing=settings.spacing,
+        revolutions=int(settings.revolutions),
+    )
+
+
+class StytraSettings(ParametrizedQt):
+    """Which visual-stimulation protocol to run in stytra for this
+    experiment. Sent to stytra alongside the existing lightsheet trigger
+    (see sashimi/processes/external_communication.py); stytra's own
+    protocol is currently fixed at its own launch time (Stytra(protocol=...)),
+    so today this arrives as metadata stytra logs verbatim rather than a
+    live protocol switch - see sashimi/hardware/external_trigger/stytra.py.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "general/stytra"
+        self.protocol_name = Param("")
+
+
+class StytraCameraRoleSettings(ParametrizedQt):
+    """One behavior camera's tracking config, matching stytra's role-based
+    multi-camera schema (`cameras=[dict(role=..., tracking=dict(method=...))]`,
+    see stytra/examples/heart_tail_tracking_exp.py). `role_name` identifies
+    which physical camera this is (e.g. "tail_cam") and is not itself a Param
+    since it's fixed for the lifetime of this settings object, not something
+    the GUI lets the user retype.
+    """
+
+    def __init__(self, role_name):
+        super().__init__()
+        self.name = f"general/stytra/{role_name}"
+        self.role_name = role_name
+        self.enabled = Param(False, (0, 1))
+        self.tracking_method = Param(
+            "tail", ["tail", "heart_rate", "pectoral_fin", "none"]
+        )
+
+
+def convert_stytra_config(stytra_settings: StytraSettings, camera_role_settings):
+    """Build the payload sent to stytra alongside the lightsheet trigger:
+    a protocol name plus stytra's own role-based multi-camera tracking
+    schema. `camera_role_settings` is a list of StytraCameraRoleSettings.
+    """
+    cameras = [
+        dict(role=settings.role_name, tracking=dict(method=settings.tracking_method))
+        for settings in camera_role_settings
+        if settings.enabled and settings.tracking_method != "none"
+    ]
+    return dict(
+        protocol_name=stytra_settings.protocol_name,
+        stytra_config=dict(cameras=cameras),
+    )
 
 
 def convert_planar_params(planar: PlanarScanningSettings):
@@ -222,6 +319,78 @@ class Calibration(ParametrizedQt):
         ]
 
         return True
+
+
+class OptoCalibration(ParametrizedQt):
+    """Pixel (camera image) -> galvo voltage calibration for the
+    optogenetics stimulation arm, which shares the imaging camera's optical
+    path (per project decision - ROIs are drawn directly on the live camera
+    view, see sashimi/gui/optogenetics_gui.py). Parallels the piezo->galvo
+    `Calibration` class above, but fits a full 2D affine transform (offset +
+    2x2 matrix) rather than a 1D linear one, since the camera and galvo axes
+    may be rotated/sheared relative to each other.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.name = "general/opto_calibration"
+        self.calibration_points = []  # list of (pixel_x, pixel_y, galvo_x, galvo_y)
+        self.affine = Param(None, gui=False)  # (2, 3): [[a0,a1,a2], [b0,b1,b2]]
+
+    def add_calibration_point(self, pixel_x, pixel_y, galvo_x, galvo_y):
+        self.calibration_points.append((pixel_x, pixel_y, galvo_x, galvo_y))
+        self.calculate_calibration()
+
+    def remove_calibration_point(self):
+        if len(self.calibration_points) > 0:
+            self.calibration_points.pop()
+            self.calculate_calibration()
+
+    def calculate_calibration(self):
+        # A 2D affine fit (offset + 2x2 matrix) needs at least 3
+        # non-collinear points, same as fitting 3 unknowns per output axis.
+        if len(self.calibration_points) < 3:
+            self.affine = None
+            return False
+
+        calibration_data = np.array(self.calibration_points)
+        pixel_xy = np.pad(
+            calibration_data[:, 0:2],
+            ((0, 0), (1, 0)),
+            constant_values=1.0,
+            mode="constant",
+        )
+        galvo_x = calibration_data[:, 2]
+        galvo_y = calibration_data[:, 3]
+
+        # solve least squares according to standard formula b = (XtX)^-1 * Xt * y
+        pixel_cor = np.linalg.pinv(pixel_xy.T @ pixel_xy)
+
+        # Stored as a list of tuples, not a numpy array: lightparam's
+        # Param.__setattr__ compares old/new values with `!=` and expects a
+        # scalar bool back, which a numpy array doesn't give (raises
+        # "truth value of an array is ambiguous") - same reason the existing
+        # piezo Calibration.calibration above is a list of tuples too.
+        self.affine = [
+            tuple(pixel_cor @ pixel_xy.T @ galvo_x),
+            tuple(pixel_cor @ pixel_xy.T @ galvo_y),
+        ]
+
+        return True
+
+    def pixel_to_galvo(self, pixel_points):
+        """Convert an (N, 2) array of (pixel_x, pixel_y) points to (N, 2)
+        galvo (x, y) voltages using the fitted affine transform."""
+        if self.affine is None:
+            raise ValueError(
+                "Optogenetics calibration not set (need >= 3 calibration points)."
+            )
+        pixel_points = np.atleast_2d(pixel_points)
+        padded = np.hstack([np.ones((pixel_points.shape[0], 1)), pixel_points])
+        affine = np.array(self.affine)
+        galvo_x = padded @ affine[0]
+        galvo_y = padded @ affine[1]
+        return np.stack([galvo_x, galvo_y], axis=1)
 
 
 def get_voxel_size(
@@ -353,11 +522,11 @@ class State:
 
         self.pause_after = False
         if self.conf["scopeless"]:
-            self.light_source = light_source_class_dict["mock"]()
-        else:
-            self.light_source = light_source_class_dict[conf["light_source"]["name"]](
-                port=conf["light_source"]["port"]
+            self.light_source_manager = LightSourceManager(
+                [{"name": "mock", "port": None, "intensity_units": "mock"}]
             )
+        else:
+            self.light_source_manager = LightSourceManager(conf["light_sources"])
         self.camera = CameraProcess(
             stop_event=self.stop_event,
             wait_event=self.scanner.wait_signal,
@@ -391,6 +560,13 @@ class State:
             saver_queue=self.saver.save_queue,
         )
 
+        # Runs independently of self.scanner (own board, own clock - see
+        # sashimi/hardware/optogenetics/ni.py's module docstring for why).
+        self.optogenetics = OptogeneticsProcess(
+            stop_event=self.stop_event,
+            sample_rate=self.sample_rate,
+        )
+
         self.camera_settings = CameraSettings()
         self.save_settings = SaveSettings()
 
@@ -401,24 +577,41 @@ class State:
         self.prev_exp_state = self.current_exp_state
 
         self.planar_setting = PlanarScanningSettings()
-        self.light_source_settings = LightSourceSettings()
-        self.light_source_settings.params.intensity.unit = (
-            self.light_source.intensity_units
-        )
+        # One LightSourceSettings per configured channel (a channel is either a
+        # whole unit, e.g. Cobolt, or one of a combiner's several channels,
+        # e.g. Toptica CLE/MLE - see LightSourceManager.channels).
+        self.light_source_settings = [
+            LightSourceSettings(
+                label=channel.label,
+                intensity_units=channel.intensity_units,
+            )
+            for channel in self.light_source_manager.channels
+        ]
 
         self.save_status: Optional[SavingStatus] = None
 
         self.single_plane_settings = SinglePlaneSettings()
         self.volume_setting = ZRecordingSettings()
         self.calibration = Calibration()
+        self.opto_calibration = OptoCalibration()
+        self.optogenetics_settings = OptogeneticsSettings()
+        self.stytra_settings = StytraSettings()
+        self.stytra_camera_roles = [
+            StytraCameraRoleSettings(role_name=role)
+            for role in ["tail_cam", "heart_cam", "fin_cam"]
+        ]
 
         for setting in [
             self.planar_setting,
-            self.light_source_settings,
+            *self.light_source_settings,
             self.single_plane_settings,
             self.volume_setting,
             self.calibration,
             self.calibration.z_settings,
+            self.opto_calibration,
+            self.optogenetics_settings,
+            self.stytra_settings,
+            *self.stytra_camera_roles,
             self.camera_settings,
             self.save_settings,
         ]:
@@ -430,6 +623,9 @@ class State:
         self.calibration.z_settings.sig_param_changed.connect(self.send_scan_settings)
         self.single_plane_settings.sig_param_changed.connect(self.send_scan_settings)
         self.volume_setting.sig_param_changed.connect(self.send_scan_settings)
+        self.stytra_settings.sig_param_changed.connect(self.send_stytra_config)
+        for role_settings in self.stytra_camera_roles:
+            role_settings.sig_param_changed.connect(self.send_stytra_config)
 
         self.save_settings.sig_param_changed.connect(self.send_scansave_settings)
 
@@ -438,9 +634,11 @@ class State:
         self.external_comm.start()
         self.saver.start()
         self.dispatcher.start()
+        self.optogenetics.start()
 
         self.current_binning = conf["camera"]["default_binning"]
         self.send_scansave_settings()
+        self.send_stytra_config()
         self.logger.log_message("initialized")
 
         self.voxel_size = None
@@ -646,8 +844,12 @@ class State:
         """
         self.noise_subtraction_active.clear()
 
-        light_intensity = self.light_source_settings.intensity
-        self.light_source.intensity = 0
+        channels = self.light_source_manager.channels
+        saved_intensities = [
+            settings.intensity for settings in self.light_source_settings
+        ]
+        for channel in channels:
+            channel.intensity = 0
         n_image = 0
         while n_image < n_images:
             current_volume = self.get_volume()
@@ -664,7 +866,8 @@ class State:
         self.calibration_ref = np.mean(calibration_set, axis=0).astype(
             dtype=current_volume.dtype
         )
-        self.light_source.intensity = light_intensity
+        for channel, intensity in zip(channels, saved_intensities):
+            channel.intensity = intensity
 
         self.noise_subtraction_active.set()
 
@@ -705,13 +908,37 @@ class State:
     def send_manual_duration(self):
         self.experiment_duration_queue.put(self.trigger_settings.experiment_duration)
 
+    def send_stim_parameters(self, pixel_rois):
+        """Convert GUI-drawn ROIs (camera pixel coordinates) to galvo
+        voltages via the optogenetics calibration and push them to
+        OptogeneticsProcess. `pixel_rois` is empty to stop stimulation."""
+        stim_parameters = convert_stim_parameters(
+            self.optogenetics_settings, self.opto_calibration, pixel_rois
+        )
+        self.optogenetics.parameter_queue.put(stim_parameters)
+
+    def send_stytra_config(self):
+        """Push the current protocol/tracking selection to ExternalComm, to
+        be sent alongside the lightsheet settings on the next trigger."""
+        stytra_config = convert_stytra_config(
+            self.stytra_settings, self.stytra_camera_roles
+        )
+        self.external_comm.stytra_config_queue.put(stytra_config)
+
+    def get_tracking_data_path(self):
+        """Path the external program (e.g. stytra) reported it saved the
+        most recent run's data under, if it reported one - see
+        AbstractComm.trigger_and_receive_duration."""
+        return get_last_parameters(self.external_comm.tracking_data_queue)
+
     def wrap_up(self):
         self.stop_event.set()
-        self.light_source.close()
+        self.light_source_manager.close()
 
         self.scanner.join(timeout=10)
         self.saver.join(timeout=10)
         self.camera.join(timeout=10)
         self.external_comm.join(timeout=10)
         self.dispatcher.join(timeout=10)
+        self.optogenetics.join(timeout=10)
         self.logger.close()

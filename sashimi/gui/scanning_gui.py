@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QCheckBox,
 )
-from lightparam.gui import ParameterGui
-from lightparam.gui.collapsible_widget import CollapsibleWidget
+from sashimi.lightparam.gui import ParameterGui
+from sashimi.lightparam.gui.collapsible_widget import CollapsibleWidget
 from sashimi.gui.waveform_gui import WaveformWidget
 
 

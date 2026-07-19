@@ -1,4 +1,5 @@
 from sashimi.hardware.scanning.__init__ import AbstractScanInterface
+from sashimi.hardware.scanning.galvo import GalvoAxis
 
 from contextlib import contextmanager
 
@@ -41,6 +42,30 @@ class NIBoards(AbstractScanInterface):
         self.z_array = np.zeros((4, self.n_samples))
 
         self.read_array = np.zeros(self.n_samples)
+
+        # Software safety limits checked before each value is written to
+        # hardware (see GalvoAxis) - on top of, not instead of, the AO tasks'
+        # own hardware range configured in setup_tasks().
+        z_channel = self.conf["z_board"]["write"]["channel"]
+        z_limits = self.conf["z_board"]["voltage_limits"]
+        xy_channel = self.conf["xy_board"]["write"]["channel"]
+        xy_limits = self.conf["xy_board"]["voltage_limits"]
+        self._piezo_axis = GalvoAxis(z_channel, z_limits["piezo"], label="piezo")
+        self._z_lateral_axis = GalvoAxis(
+            z_channel, z_limits["lateral"], label="z_lateral"
+        )
+        self._z_frontal_axis = GalvoAxis(
+            z_channel, z_limits["frontal"], label="z_frontal"
+        )
+        self._camera_trigger_axis = GalvoAxis(
+            z_channel, z_limits["camera_trigger"], label="camera_trigger"
+        )
+        self._xy_lateral_axis = GalvoAxis(
+            xy_channel, xy_limits["lateral"], label="xy_lateral"
+        )
+        self._xy_frontal_axis = GalvoAxis(
+            xy_channel, xy_limits["frontal"], label="xy_frontal"
+        )
 
         self.setup_tasks()
 
@@ -120,7 +145,8 @@ class NIBoards(AbstractScanInterface):
 
     @z_piezo.setter
     def z_piezo(self, waveform):
-        self.z_array[0, :] = waveform * self.conf["piezo"]["scale"]
+        scaled = waveform * self.conf["piezo"]["scale"]
+        self.z_array[0, :] = self._piezo_axis.validate(scaled)
 
     @property
     def z_lateral(self):
@@ -132,11 +158,11 @@ class NIBoards(AbstractScanInterface):
 
     @z_lateral.setter
     def z_lateral(self, waveform):
-        self.z_array[1, :] = waveform
+        self.z_array[1, :] = self._z_lateral_axis.validate(waveform)
 
     @z_frontal.setter
     def z_frontal(self, waveform):
-        self.z_array[2, :] = waveform
+        self.z_array[2, :] = self._z_frontal_axis.validate(waveform)
 
     @property
     def camera_trigger(self):
@@ -144,7 +170,7 @@ class NIBoards(AbstractScanInterface):
 
     @camera_trigger.setter
     def camera_trigger(self, waveform):
-        self.z_array[3, :] = waveform
+        self.z_array[3, :] = self._camera_trigger_axis.validate(waveform)
 
     @property
     def xy_frontal(self):
@@ -152,7 +178,7 @@ class NIBoards(AbstractScanInterface):
 
     @xy_frontal.setter
     def xy_frontal(self, waveform):
-        self.xy_array[1, :] = waveform
+        self.xy_array[1, :] = self._xy_frontal_axis.validate(waveform)
 
     @property
     def xy_lateral(self):
@@ -160,4 +186,4 @@ class NIBoards(AbstractScanInterface):
 
     @xy_lateral.setter
     def xy_lateral(self, waveform):
-        self.xy_array[0, :] = waveform
+        self.xy_array[0, :] = self._xy_lateral_axis.validate(waveform)

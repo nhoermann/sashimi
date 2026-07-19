@@ -1,5 +1,4 @@
-from distutils.core import setup
-from setuptools import find_packages
+from setuptools import setup, find_packages
 
 with open("requirements.txt") as f:
     requirements = f.read().splitlines()
@@ -17,13 +16,15 @@ setup(
     author_email="vilim@neuro.mpg.de",
     packages=find_packages(),
     install_requires=requirements,
-    extras_require=dict(dev=requirements_dev),
-    python_requires=">=3.8",
+    extras_require=dict(dev=requirements_dev, kinetix=["pyvcam"]),
+    python_requires=">=3.10",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Science/Research",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     keywords="imaging microscopy lightsheet",
     description="A user-friendly software for efficient control of digital scanned light sheet microscopes (DSLMs).",

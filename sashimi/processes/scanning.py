@@ -25,7 +25,6 @@ from sashimi.config import read_config
 from sashimi.processes.logging import LoggingProcess
 from sashimi.events import LoggedEvent
 
-
 conf = read_config()
 
 # Dictionary of options for the context within which the scanning has to run.

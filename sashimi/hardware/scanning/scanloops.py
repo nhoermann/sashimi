@@ -1,5 +1,5 @@
 from copy import deepcopy
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 from multiprocessing.queues import Queue
 from typing import Tuple, Union
@@ -40,8 +40,8 @@ class XYScanning:
 
 @dataclass
 class PlanarScanning:
-    lateral: XYScanning = XYScanning()
-    frontal: XYScanning = XYScanning()
+    lateral: XYScanning = field(default_factory=XYScanning)
+    frontal: XYScanning = field(default_factory=XYScanning)
 
 
 @dataclass
@@ -79,9 +79,9 @@ class TriggeringParameters:
 class ScanParameters:
     state: ScanningState = ScanningState.PAUSED
     experiment_state: ExperimentPrepareState = ExperimentPrepareState.PREVIEW
-    z: Union[ZScanning, ZManual, ZSynced] = ZManual()
-    xy: PlanarScanning = PlanarScanning()
-    triggering: TriggeringParameters = TriggeringParameters()
+    z: Union[ZScanning, ZManual, ZSynced] = field(default_factory=ZManual)
+    xy: PlanarScanning = field(default_factory=PlanarScanning)
+    triggering: TriggeringParameters = field(default_factory=TriggeringParameters)
 
 
 class ScanLoop:

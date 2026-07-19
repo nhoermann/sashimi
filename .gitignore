@@ -131,3 +131,5 @@ dmypy.json
 sashimi/hardware_config.conf
 
 /original/*
+
+.DS_Store

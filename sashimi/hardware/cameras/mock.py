@@ -2,7 +2,7 @@ from sashimi.hardware.cameras.interface import AbstractCamera
 import numpy as np
 import time
 from skimage.measure import block_reduce
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import gaussian_filter
 
 
 class MockCamera(AbstractCamera):

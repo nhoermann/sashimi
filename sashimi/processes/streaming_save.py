@@ -3,13 +3,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from queue import Empty
-import flammkuchen as fl
 import numpy as np
 import shutil
 import json
 from arrayqueues.shared_arrays import ArrayQueue
 from scopecuisine.notifiers import notifiers
 from sashimi.config import read_config
+from sashimi.io import save_h5_dict
 from sashimi.processes.logging import LoggingProcess
 from sashimi.events import LoggedEvent, SashimiEvents
 from sashimi.utilities import get_last_parameters
@@ -185,7 +185,7 @@ class StackSaver(LoggingProcess):
 
     def save_chunk(self):
         self.logger.log_message("saved chunk")
-        fl.save(
+        save_h5_dict(
             Path(self.save_parameters.output_dir)
             / "original/{:04d}.h5".format(self.i_chunk),
             {"stack_4D": self.current_data[: self.i_in_chunk, :, :, :]},

@@ -42,7 +42,7 @@ The main components of a light-sheet are the camera, galvanometric mirrors, lase
 
 ### Camera
 
-The camera we used for our implementation is the ORCA Flash 4 from Hamamatsu.  It allows for fast imaging acquisition, in combination with a large sensor that can acquire large field images. Depending on the frame size the camera can achieve various frequencies (see [table](sashimi-cam)).
+The camera we used for our implementation is the ORCA Flash 4 from Hamamatsu.  It allows for fast imaging acquisition, in combination with a large sensor that can acquire large field images. Depending on the frame size the camera can achieve various frequencies (see [table](sashimi-cam)). Sashimi's Hamamatsu driver talks the generic DCAM API, so it works with other Orca models (Flash4, Fusion, Lightning) unchanged; it also supports Teledyne Photometrics Kinetix cameras via the PVCAM SDK (`camera.name = "kinetix"` in the configuration, requires `pip install pyvcam` and the vendor PVCAM driver).
 
 ```{figure} ../images/camera.jpg
 ---
@@ -76,7 +76,7 @@ Galvanometric mirror
 
 ### Laser
 
-The laser must be chosen with a wavelength that excites the set of fluorophores present in the samples you desire to image. In our setup, we use the Cobolt from Hubner Photonics with a wavelength of 488 nm (see [fig](sashimi-laser)).
+The laser must be chosen with a wavelength that excites the set of fluorophores present in the samples you desire to image. In our setup, we use the Cobolt from Hubner Photonics with a wavelength of 488 nm (see [fig](sashimi-laser)). Sashimi also supports Toptica CLE and MLE combiner units, which expose several independently-controllable laser channels over a single connection; the `light_sources` configuration entry is a list, so any number of units (Cobolt and/or Toptica) can be controlled at once. See `sashimi/hardware/light_source/detect.py` for on-demand auto-detection of connected Toptica units.
 
 ```{figure} ../images/cobolt.jpg
 ---
@@ -144,6 +144,10 @@ name: sashimi-ni
 ---
 Multi I/O NI board
 ```
+
+### Optogenetics stimulation
+
+Sashimi optionally supports optogenetic stimulation through a second galvo pair on a dedicated NI card (`opto_board` in the configuration, separate from the imaging `z_board`/`xy_board`), steering a stimulation laser through the same optical path as the imaging camera. ROIs are drawn directly on the live camera view, converted to galvo voltages through a user-run pixel-to-galvo calibration (an affine fit, since the camera and galvo axes may be rotated/sheared relative to each other), and scanned continuously (raster-fill or spiral pattern) with the laser gated off during transit between points/ROIs. This runs as an independent process from the imaging scan loop - the two are correlated afterwards via logged timestamps rather than a shared hardware trigger. See `sashimi/hardware/optogenetics/` and the "Optogenetics" panel in the main GUI.
 
 ## Parts list
 

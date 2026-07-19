@@ -2,7 +2,6 @@ import napari
 import split_dataset
 from PyQt5.QtWidgets import QApplication, QFileDialog
 
-
 if __name__ == "__main__":
     # TODO make this run as an independent python program with the correct path argument
     # for the last stack on button press

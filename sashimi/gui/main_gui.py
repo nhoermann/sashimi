@@ -9,6 +9,8 @@ from sashimi.gui.scanning_gui import (
 from sashimi.gui.light_source_gui import LightSourceWidget
 from sashimi.gui.save_settings_gui import SavingSettingsWidget
 from sashimi.gui.camera_gui import ViewingWidget, CameraSettingsWidget
+from sashimi.gui.optogenetics_gui import OptogeneticsSettingsWidget
+from sashimi.gui.stytra_gui import StytraSettingsWidget
 from sashimi.gui.save_gui import SaveWidget
 from sashimi.gui.status_bar import StatusBarWidget
 from sashimi.gui.top_bar import TopWidget
@@ -43,6 +45,8 @@ class MainWindow(QMainWindow):
         self.wid_laser = LightSourceWidget(st, self.timer)
         self.wid_scan = PlanarScanningWidget(st)
         self.wid_camera = CameraSettingsWidget(st, self.wid_display, self.timer)
+        self.wid_optogenetics = OptogeneticsSettingsWidget(st, self.wid_display)
+        self.wid_stytra = StytraSettingsWidget(st, self.timer)
         self.wid_status_bar = StatusBarWidget(st, self.timer)
         self.toolbar = TopWidget(st, self.timer)
 
@@ -73,6 +77,16 @@ class MainWindow(QMainWindow):
         self.addDockWidget(
             Qt.RightDockWidgetArea,
             DockedWidget(widget=self.wid_save_options, title="Saving"),
+        )
+
+        self.addDockWidget(
+            Qt.RightDockWidgetArea,
+            DockedWidget(widget=self.wid_optogenetics, title="Optogenetics"),
+        )
+
+        self.addDockWidget(
+            Qt.RightDockWidgetArea,
+            DockedWidget(widget=self.wid_stytra, title="Stytra"),
         )
 
         self.setStatusBar(self.wid_status_bar)
@@ -119,7 +133,8 @@ class MainWindow(QMainWindow):
 
     def refresh_param_values(self, omit_wid_camera=False):
         # TODO should be possible with lightparam, when it's implemented there remove here
-        self.wid_laser.wid_settings.refresh_widgets()
+        for channel_widget in self.wid_laser.channel_widgets:
+            channel_widget.wid_settings.refresh_widgets()
         self.wid_scan.wid_planar.refresh_widgets()
         self.wid_status.wid_volume.wid_volume.refresh_widgets()
         self.wid_status.wid_calibration.refresh_widgets()
@@ -127,6 +142,10 @@ class MainWindow(QMainWindow):
         if not omit_wid_camera:
             self.wid_camera.wid_camera_settings.refresh_widgets()
             self.wid_camera.set_roi()
+        self.wid_optogenetics.wid_pattern_settings.refresh_widgets()
+        self.wid_stytra.wid_protocol.refresh_widgets()
+        for role_widget in self.wid_stytra.role_widgets:
+            role_widget.refresh_widgets()
         self.wid_save_options.wid_save_options.refresh_widgets()
         self.wid_save_options.set_locationbutton()
 
@@ -136,7 +155,7 @@ class MainWindow(QMainWindow):
             self.st.end_experiment()
             if self.st.pause_after:
                 self.wid_status.setCurrentIndex(0)
-                self.wid_laser.btn_off.click()
+                self.wid_laser.turn_all_off()
             self.refresh_param_values(omit_wid_camera=True)
             self.toolbar.experiment_progress.hide()
             self.toolbar.lbl_experiment_progress.hide()

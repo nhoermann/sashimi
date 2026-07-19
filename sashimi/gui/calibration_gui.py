@@ -8,10 +8,10 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QCheckBox,
 )
-from lightparam.gui import ParameterGui
+from sashimi.lightparam.gui import ParameterGui
 from sashimi.state import Calibration
-from lightparam.param_qt import ParametrizedQt
-from lightparam import Param
+from sashimi.lightparam.param_qt import ParametrizedQt
+from sashimi.lightparam import Param
 
 
 class NoiseSubtractionSettings(ParametrizedQt):

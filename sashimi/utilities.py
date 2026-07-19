@@ -50,11 +50,13 @@ def clean_json(d):
         return d.name
     elif is_dataclass(d):
         return clean_json(asdict(d))
+    elif isinstance(d, np.ndarray):
+        return clean_json(d.tolist())
+    elif isinstance(d, np.generic):
+        # json can't serialize numpy scalars (np.int32, np.int64, np.float64, ...):
+        return d.item()
     elif type(d) in [tuple, list]:
-        # json seems to have issues serializing np.int32:
-        if type(d[0]) is np.int32:
-            d = [int(i) for i in d]
-        return d
+        return [clean_json(item) for item in d]
     else:
         return d
 

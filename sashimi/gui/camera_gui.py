@@ -6,9 +6,9 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QCheckBox,
 )
-from lightparam.gui import ParameterGui
-from lightparam import Param
-from lightparam.param_qt import ParametrizedQt
+from sashimi.lightparam.gui import ParameterGui
+from sashimi.lightparam import Param
+from sashimi.lightparam.param_qt import ParametrizedQt
 from sashimi.state import (
     State,
     get_voxel_size,
@@ -132,6 +132,31 @@ class ViewingWidget(QWidget):
             name="roi_layer",
         )
 
+        # Optogenetics stimulation ROIs, drawn on this same live view since
+        # the stimulation beam shares the imaging optical path. Unlike
+        # self.roi above (always exactly one rectangle), this layer holds
+        # zero or more user-drawn polygons.
+        self.opto_roi_layer = self.viewer.add_shapes(
+            [],
+            blending="translucent",
+            face_color="transparent",
+            edge_color="magenta",
+            opacity=1,
+            visible=False,
+            name="opto_roi_layer",
+        )
+
+        # Points layer for marking where the stimulation spot appears on the
+        # live image during pixel->galvo calibration (see
+        # sashimi/gui/optogenetics_gui.py).
+        self.opto_calib_point_layer = self.viewer.add_points(
+            np.empty((0, 2)),
+            face_color="yellow",
+            size=10,
+            visible=False,
+            name="opto_calib_point_layer",
+        )
+
         self.main_layout = QVBoxLayout()
         self.bottom_layout = QHBoxLayout()
 
@@ -190,9 +215,10 @@ class ViewingWidget(QWidget):
         self.state.camera_settings.sig_param_changed.connect(
             self.launch_delayed_contrast_reset
         )
-        self.state.light_source_settings.sig_param_changed.connect(
-            self.launch_delayed_contrast_reset
-        )
+        for light_source_settings in self.state.light_source_settings:
+            light_source_settings.sig_param_changed.connect(
+                self.launch_delayed_contrast_reset
+            )
         self.viewer.window.qt_viewer.viewerButtons.resetViewButton.pressed.connect(
             self.reset_contrast
         )

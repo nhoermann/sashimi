@@ -2,10 +2,9 @@ from sashimi.hardware.light_source.interface import AbstractLightSource
 
 
 class MockLaser(AbstractLightSource):
-    def __init__(self, port=None):
-        super().__init__(port)
+    def __init__(self, port=None, intensity_units="mocks"):
+        super().__init__(port, intensity_units)
         self._current = 0
-        self.intensity_units = "mocks"
 
     def set_power(self, current):
         """Sets power of laser based on self.intensity and self.intensity_units"""
